@@ -1,0 +1,10 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"Joseph McGurkin",
+	"description":	{
+		"":	"Exports.... a... BOM... to CSV"
+	},
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
