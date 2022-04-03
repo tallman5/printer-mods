@@ -3,6 +3,9 @@
 
 import adsk.core, adsk.fusion, adsk.cam, traceback, urllib
 
+def sortPartNumber(k):
+    return k['partNumber']
+
 def run(context):
     ui = None
 
@@ -83,8 +86,8 @@ def run(context):
                         occ.activate()
                         occ.isIsolated = True
 
-                        # Need a way to hide child components and show only bodies
                         # Occurrences with bodies and child occurences are BOM'd as a full assembly
+                        # Need a way to hide child components and show only bodies
                         # for childOcc in occ.childOccurrences:
                         #     childOcc.isVisible = False
 
@@ -108,6 +111,8 @@ def run(context):
                         break
                 
                 progressDialog.progressValue = progressDialog.progressValue + 1
+
+        bomList.sort(key=sortPartNumber)
 
         mdText = "# " + initialFilename + "\n|Image|Part Number|Quantity|Description|\n|-|-|-|-|\n"
         csvText = "Part Number,Quantity,Description\n"
