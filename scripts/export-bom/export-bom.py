@@ -1,7 +1,16 @@
-#Author: Joseph McGurkin
-#Description: This script creates a BOM from the active component. If no component is active, the root component is used. Output is a CSV and a markdown file with images in an images folder.
+# Author: Joseph McGurkin
+# Description: This script creates a BOM from the active component. If no component is active, the root component is used. Output is a CSV and a markdown file with images in an images folder.
 
+from operator import truediv
 import adsk.core, adsk.fusion, adsk.cam, traceback, urllib
+
+def hideBodies(occurrences, hiddenBodies):
+    for occurrence in occurrences:
+        for childBRep in occurrence.bRepBodies:
+            childBRep.isVisible = False
+            hiddenBodies.append(childBRep)
+        if occurrence.childOccurrences.count > 0:
+            hideBodies(occurrence.childOccurrences, hiddenBodies)
 
 def sortPartNumber(k):
     return k['partNumber']
@@ -43,6 +52,15 @@ def run(context):
             imagesFolder = rootFolder + "\\" + "images"
         else:
             return
+
+        # If grid is on, temporarily turn off
+        turnedOffGrid = False
+        cmdDef = ui.commandDefinitions.itemById('ViewLayoutGridCommand')
+        listCntrlDef = adsk.core.ListControlDefinition.cast(cmdDef.controlDefinition)
+        layoutGridItem = listCntrlDef.listItems.item(0)
+        if layoutGridItem.isSelected:
+            layoutGridItem.isSelected = False
+            turnedOffGrid = True
 
         progressDialog = ui.createProgressDialog()
         progressDialog.cancelButtonText = 'Cancel'
@@ -86,15 +104,17 @@ def run(context):
                         occ.activate()
                         occ.isIsolated = True
 
-                        # Occurrences with bodies and child occurences are BOM'd as a full assembly
-                        # Need a way to hide child components and show only bodies
-                        # for childOcc in occ.childOccurrences:
-                        #     childOcc.isVisible = False
+                        hiddenBodies = []
+                        if occurrence.bRepBodies.count > 0 and occurrence.childOccurrences.count > 0:
+                            hideBodies(occurrence.childOccurrences, hiddenBodies)
 
                         imageFileName = partNumber + '.png'
                         imagePath = urllib.parse.quote("images/" + imageFileName)
                         viewPort.fit()
                         viewPort.saveAsImageFile(imagesFolder + "\\" + imageFileName, 100, 100)
+
+                        for hiddenBody in hiddenBodies:
+                            hiddenBody.isVisible = True
 
                         bomList.append({
                             'component': component,
@@ -126,8 +146,10 @@ def run(context):
         with open(rootFolder + "\\" + initialFilename + ".csv", "w") as outputFile:
             outputFile.writelines(csvText)
 
-        progressDialog.hide()
+        if turnedOffGrid == True:
+            layoutGridItem.isSelected = True
 
+        progressDialog.hide()
     except:
         if ui:
             ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
