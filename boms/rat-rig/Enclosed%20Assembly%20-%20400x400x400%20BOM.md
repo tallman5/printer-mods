@@ -1,5 +1,5 @@
-![](images/rat-rig-400.png)
 # Enclosed Assembly - 400x400x400 BOM
+![](images/Enclosed%20Assembly%20-%20400x400x400%20Assembly.png)
 |Image|Name|Number|Quantity|Description|
 |-|-|-|-|-|
 |![](images/3030_end_cap.png)|3030_end_cap v1:1|3030_end_cap|3||

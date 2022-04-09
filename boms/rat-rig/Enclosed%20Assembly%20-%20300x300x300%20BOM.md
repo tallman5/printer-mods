@@ -1,4 +1,5 @@
 # Enclosed Assembly - 300x300x300 BOM
+![](images/Enclosed%20Assembly%20-%20300x300x300%20Assembly.png)
 |Image|Name|Number|Quantity|Description|
 |-|-|-|-|-|
 |![](images/3030_end_cap.png)|3030_end_cap v1:1|3030_end_cap|3||

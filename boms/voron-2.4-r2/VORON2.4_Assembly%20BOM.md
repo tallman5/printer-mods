@@ -1,4 +1,5 @@
 # VORON2.4_Assembly BOM
+![](images/VORON2.4_Assembly%20Assembly.png)
 |Image|Name|Number|Quantity|Description|
 |-|-|-|-|-|
 |![](images/0.png)|0 (20):1|0|50||
