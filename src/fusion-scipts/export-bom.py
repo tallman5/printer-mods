@@ -5,8 +5,8 @@
 #   Output is a markdown file with images in an images folder.
 # Notes:
 #   Yes, there are solutions which simply iterate through the root component's all occurrences.
-#   However, if an assembly has child linked assemblies and those children have grandchildren links,
-#   the linked grandchild cannot be isolated for an image.
+#   However, this solution covers two important scenarios. If an assembly has child linked assemblies and those children have grandchildren links,
+#   the linked grandchild cannot be isolated for an image. Also, enable parent assemblies to be exported as a single assembly.
 
 from inspect import getfile
 import adsk.core, adsk.fusion, adsk.cam, traceback, urllib, time
@@ -21,58 +21,81 @@ def getFolder(ui, title):
 
 def hideAll(design, ui):
     bulbDialog = None
-    if design.rootComponent.allOccurrences.count > 50:
+    if design.rootComponent.allOccurrences.count > 100:
         bulbDialog = ui.createProgressDialog()
         bulbDialog.cancelButtonText = 'Cancel'
         bulbDialog.isBackgroundTranslucent = False
         bulbDialog.isCancelButtonShown = True
         bulbDialog.show('Step 1 of 2, hiding everything...', '%p percent complete, component %v of %m', 0, design.rootComponent.allOccurrences.count, 1)
     for occ in design.rootComponent.allOccurrences:
-        occ.isLightBulbOn = False
+        for body in occ.component.bRepBodies:
+            body.isLightBulbOn = False
         if bulbDialog:
             bulbDialog.progressValue = bulbDialog.progressValue + 1
             if bulbDialog.wasCancelled: return
-    if bulbDialog is not None:
+    if bulbDialog:
         bulbDialog.hide()
         bulbDialog = None
 
-def sortPartNumber(k):
-    return k['partNumber']
+def toggleBulb(occurrence, newValue):
+    for body in occurrence.component.bRepBodies:
+        body.isLightBulbOn = newValue
+    for child in occurrence.childOccurrences:
+        toggleBulb(child, newValue)
+
+def getIgnore(objWithAttrs):
+    rv = False
+    for attr in objWithAttrs.attributes:
+        if attr.groupName == 'exportBom' and attr.name == 'ignore' and attr.value == 'True':
+            rv = True
+    return rv
+
+def getIsSingleAssembly(objWithAttrs):
+    rv = False
+    for attr in objWithAttrs.attributes:
+        if attr.groupName == 'exportBom' and attr.name == 'isSingleAssembly' and attr.value == 'True':
+            rv = True
+    return rv
 
 def processOccs(occs, imagesFolder, viewPort, progressDialog, bomList):
     for occ in occs:
-        occ.isLightBulbOn = True
-        if occ.component.bRepBodies.count > 0:
-            partNumber = occ.component.partNumber
-            itemFound = False
-            for bomItem in bomList:
-                if bomItem['partNumber'] == partNumber:
-                    bomItem['instances'] += 1
-                    itemFound = True
-                    break
+        ignore = getIgnore(occ.component)
+        isSingleAssembly = getIsSingleAssembly(occ.component)
 
-            if not itemFound:
-                viewPort.fit()
-                imageFileName = partNumber + '.png'
-                imagePath = urllib.parse.quote("images/" + imageFileName)
-                filePath = "{}{}.png".format(imagesFolder, partNumber)
-                viewPort.saveAsImageFile(filePath, 100, 100)
-                bomList.append({
-                    'imagePath': imagePath,
-                    'partName': occ.name,
-                    'partNumber': partNumber,
-                    'instances': 1,
-                    'material': '',
-                    'description': occ.component.description,
-                })
+        if not ignore:
+            if isSingleAssembly or occ.component.bRepBodies.count > 0:
+                partNumber = occ.component.partNumber
+                itemFound = False
+                for bomItem in bomList:
+                    if bomItem['partNumber'] == partNumber:
+                        bomItem['instances'] += 1
+                        itemFound = True
+                        break
 
-            for body in occ.component.bRepBodies:
-                body.isLightBulbOn = False
+                if not itemFound:
+                    if isSingleAssembly:
+                        toggleBulb(occ, True)
+                    else:
+                        for body in occ.component.bRepBodies:
+                            body.isLightBulbOn = True
+                    viewPort.fit()
+                    imageFileName = partNumber + '.png'
+                    imagePath = urllib.parse.quote("images/" + imageFileName)
+                    filePath = "{}{}.png".format(imagesFolder, partNumber)
+                    viewPort.saveAsImageFile(filePath, 100, 100)
+                    bomList.append({
+                        'imagePath': imagePath,
+                        'partName': occ.name,
+                        'partNumber': partNumber,
+                        'instances': 1,
+                        'material': '',
+                        'description': occ.component.description,
+                    })
 
-        processOccs(occ.childOccurrences, imagesFolder, viewPort, progressDialog, bomList)
-        for body in occ.component.bRepBodies:
-            body.isLightBulbOn = True
-        occ.isLightBulbOn = False
+                    toggleBulb(occ, False)
+
+            if not isSingleAssembly:
+                processOccs(occ.childOccurrences, imagesFolder, viewPort, progressDialog, bomList)
 
         if progressDialog:
             progressDialog.progressValue = progressDialog.progressValue + 1
@@ -106,17 +129,12 @@ def run(context):
 
         hideAll(design, ui)
 
-        # If not root, need to light up each between the root and the selcected item
-        if design.rootComponent != design.activeComponent:
-            parentCtx = design.activeOccurrence
-            while parentCtx is not None:
-                parentCtx.isLightBulbOn = True
-                parentCtx = parentCtx.assemblyContext
-
         bomList = []
         
         # If the selected item has bodies and occurrences, need to get the bodies before working all occurrences
         if startComp.bRepBodies.count > 0:
+            for body in startComp.bRepBodies:
+                body.isLightBulbOn = True
             viewPort.fit()
             partNumber = startComp.partNumber
             imageFileName = partNumber + '.png'
@@ -131,10 +149,11 @@ def run(context):
                 'material': '',
                 'description': startComp.description,
             })
-            startComp.isBodiesFolderLightBulbOn = False
+            for body in startComp.bRepBodies:
+                body.isLightBulbOn = False
 
         occDialog = None
-        if startComp.allOccurrences.count > 1:
+        if startComp.allOccurrences.count > 10:
             occDialog = ui.createProgressDialog()
             occDialog.cancelButtonText = 'Cancel'
             occDialog.isBackgroundTranslucent = False
@@ -150,8 +169,8 @@ def run(context):
         
         # Get image of start assembly
         for occ in startComp.allOccurrences:
-            occ.isLightBulbOn = True
-        startComp.isBodiesFolderLightBulbOn = True
+            for body in occ.bRepBodies:
+                body.isLightBulbOn = True
         viewPort.fit()
         startPartNumber = startComp.partNumber + " Assembly"
         startImageFileName = startPartNumber + '.png'
@@ -159,7 +178,8 @@ def run(context):
         startFilePath = "{}{}.png".format(imagesFolder, startPartNumber)
         viewPort.saveAsImageFile(startFilePath, 200, 200)
 
-        bomList.sort(key=sortPartNumber)
+        bomList.sort(key=lambda x: (x['partNumber'].casefold(), x))
+ 
         initialFilename = startComp.partNumber + " BOM"
         mdText = "# " + initialFilename + "\n"
         mdText += "![](" + startImagePath + ")\n"
