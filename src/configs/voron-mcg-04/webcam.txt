@@ -21,7 +21,7 @@
 #
 # Defaults to a resolution of 640x480 px and a framerate of 10 fps
 #
-camera_usb_options="-r 1920x1080 -f 10"
+camera_usb_options="-r 1920x1080 -f 20"
 
 ### Additional webcam devices known to cause problems with -f
 #
@@ -70,6 +70,7 @@ camera_usb_options="-r 1920x1080 -f 10"
 #
 #camera_http_webroot="./www-fluidd"
 #camera_http_options="-n"
+#camera_http_options=""
 
 ### EXPERIMENTAL
 # Support for different streamer types.
